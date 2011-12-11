@@ -11,6 +11,18 @@
 #include <kern/trap.h>
 
 
+// Test the stack backtrace function (lab 1 only)
+void
+test_backtrace(int x)
+{
+	cprintf("entering test_backtrace %d\n", x);
+	if (x > 0)
+		test_backtrace(x-1);
+	else
+		mon_backtrace(0, 0, 0);
+	cprintf("leaving test_backtrace %d\n", x);
+}
+
 void
 i386_init(void)
 {
@@ -34,6 +46,8 @@ i386_init(void)
 	// Test IDT (lab 2 only)
 	__asm__ __volatile__("int3");
 	cprintf("Breakpoint succeeded!\n");
+	// Test the stack backtrace function (lab 1 only)
+	test_backtrace(5);
 
 	// Drop into the kernel monitor.
 	while (1)

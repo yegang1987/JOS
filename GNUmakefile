@@ -132,6 +132,7 @@ tarball: realclean
 	tar cf - `ls -a | grep -v '^\.*$$' | grep -v '^CVS$$' | grep -v '^lab[0-9].*\.tar\.gz'` | gzip > lab$(LAB)-$(USER).tar.gz
 
 # For test runs
+
 xrun:
 	$(V)$(MAKE) $(IMAGES)
 	bochs -q

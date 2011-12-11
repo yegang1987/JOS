@@ -67,6 +67,7 @@ runbochs
 
 score=0
 
+<<<<<<< HEAD
 echo_n "Page directory: "
  if grep "boot_mem_check() succeeded!" bochs.out >/dev/null
  then
@@ -105,5 +106,4 @@ echo_n "Returning from breakpoint interrupt: "
  fi
 
 echo "Score: $score/70"
-
 

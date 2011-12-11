@@ -34,6 +34,12 @@
 
 // page table index
 #define PTX(la)		((((uintptr_t) (la)) >> PGSHIFT) & 0x3FF)
+#define PPN(la)		(((uintptr_t) (la)) >> PTXSHIFT)
+#define VPN(la)		PPN(la)		// used to index into vpt[]
+
+// page directory index
+#define VPD(la)		PDX(la)		// used to index into vpd[]
+
 
 // offset in page
 #define PGOFF(la)	(((uintptr_t) (la)) & 0xFFF)
@@ -50,6 +56,9 @@
 
 #define PTSIZE		(PGSIZE*NPTENTRIES) // bytes mapped by a page directory entry
 #define PTSHIFT		22		// log2(PTSIZE)
+
+#define PTXSHIFT	12		// offset of PTX in a linear address
+#define PDXSHIFT	22		// offset of PDX in a linear address
 
 // Page table/directory entry flags.
 #define PTE_P		0x001	// Present
