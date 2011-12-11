@@ -1,0 +1,4 @@
+00004236799e[CPU0 ] interrupt(): gate descriptor is not valid sys seg
+00004236799e[CPU0 ] interrupt(): gate descriptor is not valid sys seg
+00004236799e[CPU0 ] interrupt(): gate descriptor is not valid sys seg
+00004236799p[CPU0 ] >>PANIC<< exception(): 3rd (13) exception with no resolution
