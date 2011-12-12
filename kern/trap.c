@@ -56,13 +56,44 @@ void
 idt_init(void)
 {
 	extern struct Segdesc gdt[];
-	
+	extern uint32_t *e_00h;	
+	extern uint32_t *e_01h;
+	extern uint32_t *e_02h;
+	extern uint32_t *e_03h;
+	extern uint32_t *e_04h;
+	extern uint32_t *e_05h;
+	extern uint32_t *e_06h;
+	extern uint32_t *e_07h;
+	extern uint32_t *e_08h;
+	extern uint32_t *e_0ah;
+	extern uint32_t *e_0bh;
+	extern uint32_t *e_0ch;
+	extern uint32_t *e_0dh;
+	extern uint32_t *e_0eh;
+	extern uint32_t *e_10h;
+	extern uint32_t *syscall;
 	// LAB 2: Your code here.
+	SETGATE(idt[T_DIVIDE], 1, GD_KT, &e_00h, 1);
+	SETGATE(idt[T_DEBUG], 1, GD_KT, &e_01h, 1);
+	SETGATE(idt[T_NMI], 1, GD_KT, &e_02h, 1);
+	SETGATE(idt[T_BRKPT], 1, GD_KT, &e_03h, 3);
+	SETGATE(idt[T_OFLOW], 1, GD_KT, &e_04h, 3);
+	SETGATE(idt[T_BOUND], 1, GD_KT, &e_05h, 3);
+	SETGATE(idt[T_ILLOP], 1, GD_KT, &e_06h, 1);
+	SETGATE(idt[T_DEVICE], 1, GD_KT, &e_07h, 1);
+	SETGATE(idt[T_DBLFLT], 1, GD_KT, &e_08h, 1);
+	SETGATE(idt[T_TSS], 1, GD_KT, &e_0ah, 1);
+	SETGATE(idt[T_SEGNP], 1, GD_KT, &e_0bh, 1);
+	SETGATE(idt[T_STACK], 1, GD_KT, &e_0ch, 1);
+	SETGATE(idt[T_GPFLT], 1, GD_KT, &e_0dh, 1);
+	SETGATE(idt[T_PGFLT], 1, GD_KT, &e_0eh, 1);
+	SETGATE(idt[T_FPERR], 1, GD_KT, &e_10h, 1);
 
 	// Set a gate for the system call interrupt.
 	// Hint: Must this gate be accessible from userlevel?
 	// LAB 3: Your code here.
-	
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, &syscall, 3);
+
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	ts.ts_esp0 = KSTACKTOP;
@@ -114,9 +145,13 @@ void
 trap(struct Trapframe *tf)
 {
 	// Dispatch based on what type of trap occurred
+	cprintf("entering trap function, trapno = %d.\n", tf->tf_trapno);
 	switch (tf->tf_trapno) {
 
 	// LAB 2: Your code here.
+	case 0x03:
+		cprintf("catch the int3.\n");
+		break;
 
 	default:
 		// Unexpected trap: The user process or the kernel has a bug.
