@@ -40,12 +40,11 @@
 // page directory index
 #define VPD(la)		PDX(la)		// used to index into vpd[]
 
-
 // offset in page
 #define PGOFF(la)	(((uintptr_t) (la)) & 0xFFF)
 
 // construct linear address from indexes and offset
-#define PGADDR(d, t, o)	((void*) ((d) << PDXSHIFT | (t) << PGSHIFT | (o)))
+#define PGADDR(d, t, o)	((void*) ((d) << PTSHIFT | (t) << PGSHIFT | (o)))
 
 // Page directory and page table constants.
 #define NPDENTRIES	1024		// page directory entries per page directory
@@ -56,9 +55,6 @@
 
 #define PTSIZE		(PGSIZE*NPTENTRIES) // bytes mapped by a page directory entry
 #define PTSHIFT		22		// log2(PTSIZE)
-
-#define PTXSHIFT	12		// offset of PTX in a linear address
-#define PDXSHIFT	22		// offset of PDX in a linear address
 
 // Page table/directory entry flags.
 #define PTE_P		0x001	// Present

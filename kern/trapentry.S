@@ -51,7 +51,7 @@ TRAPHANDLER(e_0ch, 0x0c);
 TRAPHANDLER(e_0dh, 0x0d);
 TRAPHANDLER(e_0eh, 0x0e);
 TRAPHANDLER_NOEC(e_10h, 0x10);
-TRAPHANDLER_NOEC(syscall, 0x30);
+TRAPHANDLER_NOEC(msyscall, 0x30);
 
 _alltraps:
 	push %ds;	#tf_ds

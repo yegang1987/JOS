@@ -11,6 +11,8 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/trap.h>
+#include <kern/pmap.h>
+#include <kern/env.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -60,20 +62,6 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	char *ebp = (char *)read_ebp();
-	ebp = (char *)(*(unsigned int *)ebp);
-	int i = 0;
-	while(1)
-	{
-		int *x = (int *)(ebp + 8);
-		unsigned int *ip = (unsigned int *)(ebp + 4);
-		ebp = (char *)(*(unsigned int *)ebp);
-		if( *(unsigned int*)ebp == 0)
-			break;
-		cprintf("%d:ebp %x eip %x args %d\n", i, ebp, *ip, *x);
-		i++;
-	}
-	//
 	return 0;
 }
 
