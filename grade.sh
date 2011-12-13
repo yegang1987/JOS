@@ -34,6 +34,8 @@ runbochs () {
 	brkaddr=`grep 'readline$' obj/kernel.sym | sed -e's/ .*$//g'`
 	#echo "brkaddr $brkaddr"
 
+	readline_hack=`grep 'readline_hack$' obj/kernel.sym | sed -e's/ .*$//g' | sed -e's/^f//'`
+
 	# Run Bochs, setting a breakpoint at readline(),
 	# and feeding in appropriate commands to run, then quit.
 	(
@@ -43,6 +45,12 @@ runbochs () {
 		echo vbreak 0x8:0x$brkaddr
 		psleep .1
 		echo c
+		if test "$readline_hackval" != 0; then
+			psleep .1
+			echo setpmem 0x$readline_hack 1 $readline_hackval
+			psleep .1
+			echo c
+		fi	
 		# EOF will do just fine to quit.
 	) | (
 		ulimit -t $timeout
@@ -52,54 +60,220 @@ runbochs () {
 }
 
 
+# Usage: runtest <tagname> <defs> <strings...>
+runtest () {
+	perl -e "print '$1: '"
+	rm -f obj/kern/init.o obj/kernel obj/kernel.img 
+	[ "$preservefs" = y ] || rm -f obj/fs.img
+	if $verbose
+	then
+		echo "gmake $2... "
+	fi
+	gmake $2 >$out
+	if [ $? -ne 0 ]
+	then
+		echo gmake $2 failed 
+		exit 1
+	fi
+	runbochs
+	if [ ! -s bochs.out ]
+	then
+		echo 'no bochs.out'
+	else
+		shift
+		shift
+		continuetest "$@"
+	fi
+}
 
-gmake
-runbochs
+quicktest () {
+	perl -e "print '$1: '"
+	shift
+	continuetest "$@"
+}
+
+continuetest () {
+	okay=yes
+
+	not=false
+	for i
+	do
+		if [ "x$i" = "x!" ]
+		then
+			not=true
+		elif $not
+		then
+			if egrep "^$i\$" bochs.out >/dev/null
+			then
+				echo "got unexpected line '$i'"
+				if $verbose
+				then
+					exit 1
+				fi
+				okay=no
+			fi
+			not=false
+		else
+			egrep "^$i\$" bochs.out >/dev/null
+			if [ $? -ne 0 ]
+			then
+				echo "missing '$i'"
+				if $verbose
+				then
+					exit 1
+				fi
+				okay=no
+			fi
+			not=false
+		fi
+	done
+	if [ "$okay" = "yes" ]
+	then
+		score=`expr $pts + $score`
+		echo OK
+	else
+		echo WRONG
+	fi
+}
+
+# Usage: runtest1 [-tag <tagname>] <progname> [-Ddef...] STRINGS...
+runtest1 () {
+	if [ $1 = -tag ]
+	then
+		shift
+		tag=$1
+		prog=$2
+		shift
+		shift
+	else
+		tag=$1
+		prog=$1
+		shift
+	fi
+	runtest1_defs=
+	while expr "x$1" : 'x-D.*' >/dev/null; do
+		runtest1_defs="DEFS+='$1' $runtest1_defs"
+		shift
+	done
+	runtest "$tag" "DEFS='-DTEST=_binary_obj_user_${prog}_start' DEFS+='-DTESTSIZE=_binary_obj_user_${prog}_size' $runtest1_defs" "$@"
+}
+
+
 
 score=0
 
-	echo_n "Printf: "
-	if grep "6828 decimal is 15254 octal!" bochs.out >/dev/null
-	then
-		score=`expr 20 + $score`
-		echo OK
-	else
-		echo WRONG
-	fi
+runtest1 hello -DJOS_MULTIENV=0 \
+	'.00000000. new env 00001000' \
+	'hello, world' \
+	'i am environment 00001000' \
+	'.00001000. exiting gracefully' \
+	'.00001000. free env 00001000' \
+	'Destroyed all environments - nothing more to do!'
 
-	echo_n "Backtrace: "
-	cnt=`grep "ebp f01.* eip f01.* args" bochs.out | wc -l`
-	if [ $cnt -eq 8 ]
-	then
-		score=`expr 15 + $score`
-		echo_n "Count OK"
-	else
-		echo_n "Count WRONG"
-	fi
+# the [00001000] tags should have [] in them, but that's 
+# a regular expression reserved character, and i'll be damned if
+# I can figure out how many \ i need to add to get through 
+# however many times the shell interprets this string.  sigh.
 
-	cnt=`grep "ebp f01.* eip f0100.* args" bochs.out | awk 'BEGIN { FS = ORS = " " }
-{ print $7 }
-END { printf("\n") }' | grep '^00000000 00000000 00000001 00000002 00000003 00000004 00000005' | wc -w`
-	if [ $cnt -eq 8 ]; then
-		score=`expr 15 + $score`
-		echo , Args OK
-	else
-		echo , Args WRONG
-	fi
+runtest1 buggyhello -DJOS_MULTIENV=0 \
+	'.00001000. user_mem_check va 00000...' \
+	'.00001000. free env 00001000'
 
-	echo_n "Debugging symbols: "
-	cnt=`grep "kern/init.c.*test_backtrace.*1 arg)" bochs.out | wc -l`
-	if [ $cnt -eq 6 ]; then
-		score=`expr 25 + $score`
-		echo OK
-	else
-		echo WRONG
-	fi
+runtest1 evilhello -DJOS_MULTIENV=0 \
+	'.00001000. user_mem_check va f0100...' \
+	'.00001000. free env 00001000'
 
-echo "Score: $score/75"
+runtest1 divzero -DJOS_MULTIENV=0 \
+	! '1/0 is ........!' \
+	'Incoming TRAP frame at 0xefbfff..' \
+	'  trap 0x00000000 Divide error' \
+	'  eip  0x008.....' \
+	'  ss   0x----0023' \
+	'.00001000. free env 00001000'
 
-if [ $score -lt 75 ]; then
-	exit 1
-fi
+runtest1 breakpoint -DJOS_MULTIENV=0 \
+	'Welcome to the JOS kernel monitor!' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x00000003 Breakpoint' \
+	'  eip  0x008.....' \
+	'  ss   0x----0023' \
+	! '.00001000. free env 00001000'
+
+runtest1 softint -DJOS_MULTIENV=0 \
+	'Welcome to the JOS kernel monitor!' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000d General Protection' \
+	'  eip  0x008.....' \
+	'  ss   0x----0023' \
+	'.00001000. free env 00001000'
+
+runtest1 badsegment -DJOS_MULTIENV=0 \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000d General Protection' \
+	'  err  0x0000001c' \
+	'  eip  0x008.....' \
+	'  ss   0x----0023' \
+	'.00001000. free env 00001000'
+
+runtest1 faultread -DJOS_MULTIENV=0 \
+	! 'I read ........ from location 0!' \
+	'.00001000. user fault va 00000000 ip 008.....' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000e Page Fault' \
+	'  err  0x00000004' \
+	'.00001000. free env 00001000'
+
+runtest1 faultreadkernel -DJOS_MULTIENV=0 \
+	! 'I read ........ from location 0xf0100000!' \
+	'.00001000. user fault va f0100000 ip 008.....' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000e Page Fault' \
+	'  err  0x00000005' \
+	'.00001000. free env 00001000' \
+
+runtest1 faultwrite -DJOS_MULTIENV=0 \
+	'.00001000. user fault va 00000000 ip 008.....' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000e Page Fault' \
+	'  err  0x00000006' \
+	'.00001000. free env 00001000'
+
+runtest1 faultwritekernel -DJOS_MULTIENV=0 \
+	'.00001000. user fault va f0100000 ip 008.....' \
+	'Incoming TRAP frame at 0xefbfffbc' \
+	'  trap 0x0000000e Page Fault' \
+	'  err  0x00000007' \
+	'.00001000. free env 00001000'
+
+runtest1 testbss -DJOS_MULTIENV=0 \
+	'Making sure bss works right...' \
+	'Yes, good.  Now doing a wild write off the end...' \
+	'.00001000. user fault va 00c..... ip 008.....' \
+	'.00001000. free env 00001000'
+
+pts=30
+runtest1 dumbfork \
+	'.00000000. new env 00001000' \
+	'.00000000. new env 00001001' \
+	'0: I am the parent!' \
+	'9: I am the parent!' \
+	'0: I am the child!' \
+	'9: I am the child!' \
+	'19: I am the child!' \
+	'.00001001. exiting gracefully' \
+	'.00001001. free env 00001001' \
+	'.00001002. exiting gracefully' \
+	'.00001002. free env 00001002'
+
+pts=10
+readline_hackval=1
+runtest1 -tag 'breakpoint [backtrace]' breakpoint -DJOS_MULTIENV=0 \
+	'^Stack backtrace:' \
+	' *user/breakpoint.c:.*' \
+	' *lib/libmain.c:.*' \
+	' *lib/entry.S:.*'
+
+echo Score: $score/100
+
 
 

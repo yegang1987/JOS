@@ -106,6 +106,8 @@ USER_CXXFLAGS := $(USER_CFLAGS) -fno-exceptions -fno-rtti
 # Include Makefrags for subdirectories
 include boot/Makefrag
 include kern/Makefrag
+include lib/Makefrag
+include user/Makefrag
 
 
 IMAGES = $(OBJDIR)/kernel.img
@@ -132,6 +134,10 @@ tarball: realclean
 	tar cf - `ls -a | grep -v '^\.*$$' | grep -v '^CVS$$' | grep -v '^lab[0-9].*\.tar\.gz'` | gzip > lab$(LAB)-$(USER).tar.gz
 
 # For test runs
+xrun:
+	$(V)$(MAKE) $(IMAGES)
+	bochs -q
+
 run-%:
 	$(V)rm -f $(OBJDIR)/kern/init.o $(IMAGES)
 	$(V)$(MAKE) "DEFS=-DTEST=_binary_obj_user_$*_start -DTESTSIZE=_binary_obj_user_$*_size" $(IMAGES)

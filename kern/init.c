@@ -6,18 +6,11 @@
 
 #include <kern/monitor.h>
 #include <kern/console.h>
+#include <kern/pmap.h>
+#include <kern/kclock.h>
+#include <kern/trap.h>
+#include <kern/env.h>
 
-// Test the stack backtrace function (lab 1 only)
-void
-test_backtrace(int x)
-{
-	cprintf("entering test_backtrace %d\n", x);
-	if (x > 0)
-		test_backtrace(x-1);
-	else
-		mon_backtrace(0, 0, 0);
-	cprintf("leaving test_backtrace %d\n", x);
-}
 
 void
 i386_init(void)
@@ -31,8 +24,32 @@ i386_init(void)
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
 
-	// Test the stack backtrace function (lab 1 only)
-	test_backtrace(5);
+	// Lab 2 memory management initialization functions
+	boot_mem_init();
+	page_init();
+	page_check();
+
+	// Lab 2 interrupt and gate descriptor initialization functions
+	idt_init();
+
+	// Lab 3 user environment initialization functions
+	env_init();
+
+#if JOS_MULTIENV 
+	// Should always have an idle process as first one.
+	ENV_CREATE(user_idle);
+#endif
+
+#ifdef TEST
+	// Don't touch -- used by grading script!
+	ENV_CREATE2(TEST, TESTSIZE);
+#else
+	// Touch all you want.
+	ENV_CREATE(user_hello);
+#endif // TEST*
+
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
 
 	// Drop into the kernel monitor.
 	while (1)
